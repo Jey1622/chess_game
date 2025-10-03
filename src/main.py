@@ -26,18 +26,67 @@ def print_grid():
     for x in grid:
         print(x)
 
-def movable(x,y,ex,ey):
-    return True
+def straight(x,y,ex,ey):
+    if x==ex or y==ey:
+        return True
+    return False
+
+def diagonal(x,y,ex,ey):
+    if x-ex==y-ey:
+        return True
+    return False
+
+def l_move(x,y,ex,ey):
+    if (abs(x-ex),abs(y-ey)) in [(1,3),(3,1)]:
+        return True
+    return False
+
+def movable(coin,x,y,ex,ey):
+    color=coin[0]
+    coin=coin[1]
+    if(coin=='P'):
+        if straight(x,y,ex,ey) or diagonal(x,y,ex,ey) and abs(x-ex)==1 and abs(y-ey)<=1:
+            if color=='B' and ex>x:
+                return True
+            elif color=='W' and ex<x:
+                return True
+            else :
+                return False
+    elif(coin=='Q'):
+        if straight(x,y,ex,ey) or diagonal(x,y,ex,ey):
+            return True
+        return False
+    elif (coin=='R'):
+        if straight(x,y,ex,ey):
+            return True
+        return False
+    elif (coin=='B'):
+        if diagonal(x,y,ex,ey):
+            return True
+        return False
+    elif (coin=='H'):
+        if l_move(x,y,ex,ey):
+            return True
+        return False
+    elif (coin=='K'):
+        if (straight(x,y,ex,ey) or diagonal(x,y,ex,ey)) and (abs(x-ex)<=1 and abs(y-ey)<=1):
+            return True
+        return False
+    
+
+    else:
+        return False
+    
 
 def validate_move(x,y,ex,ey):
     global turn,grid
     coin=grid[x][y]
     end_coin=grid[ex][ey]
 
-    if(turn==1 and (coin[0]=='B' or end_coin[0]=='W')) or (turn==0 and (coin[0]=='W' or end_coin[0]=='B')):
+    if coin=='  ' or (turn==1 and (coin[0]=='B' or end_coin[0]=='W')) or (turn==0 and (coin[0]=='W' or end_coin[0]=='B')):
         return False
     else:
-        res=movable(x,y,ex,ey)
+        res=movable(coin,x,y,ex,ey)
 
         if res is True:
             grid[ex][ey]=coin
