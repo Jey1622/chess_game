@@ -25,26 +25,52 @@ def print_grid():
     global grid
     for x in grid:
         print(x)
+        
+def direction(x,y,ex,ey):
+    val1,val2=-1,-1
+    if ex-x>0:
+        val1=1
+    elif ex-x==0:
+        val1=0
+        
+    if ey-y>0:
+        val2=1
+    elif ey-y==0:
+        val2=0
+        
+    return val1,val2
+
+def obstructed(x,y,ex,ey):
+    global grid
+    dir_X,dir_y=direction(x,y,ex,ey)
+    print(dir_X,dir_y)
+    stx,sty=x+dir_X,y+dir_y
+    while(stx!=ex or sty!=ey):
+        if(grid[stx][sty]!='  '):
+            return False
+        stx += dir_X  
+        sty += dir_y 
+    return True
 
 def straight(x,y,ex,ey):
-    if x==ex or y==ey:
+    if (x==ex or y==ey) and obstructed(x,y,ex,ey):
         return True
     return False
 
 def diagonal(x,y,ex,ey):
-    if x-ex==y-ey:
+    if (abs(x-ex)==abs(y-ey)) and obstructed(x,y,ex,ey):
         return True
     return False
 
 def l_move(x,y,ex,ey):
-    if (abs(x-ex),abs(y-ey)) in [(1,3),(3,1)]:
+    if (abs(x-ex),abs(y-ey)) in [(1,2),(2,1)]:
         return True
     return False
 
 def movable(coin,x,y,ex,ey):
     color=coin[0]
     coin=coin[1]
-    if(coin=='P'):
+    if(coin=='P'): #want to fix the bug
         if straight(x,y,ex,ey) or diagonal(x,y,ex,ey) and abs(x-ex)==1 and abs(y-ey)<=1:
             if color=='B' and ex>x:
                 return True
