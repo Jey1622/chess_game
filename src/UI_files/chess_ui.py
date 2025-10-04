@@ -13,13 +13,19 @@ from pathlib import Path
 # Add parent directory to Python path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from mod_button import ModButton
+from main import validate_move
 from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtGui import QIcon
+from PyQt5.QtCore import QSize 
+from PyQt5.QtWidgets import QApplication, QDialog
 
 
 class Ui_Dialog(QtWidgets.QMainWindow):
     def setupUi(self, Dialog):
         Dialog.setObjectName("Dialog")
-        Dialog.resize(1114, 848)
+        Dialog.resize(1164, 948)
+        self.points=[]
+        self.turn=0
         self.gridLayoutWidget = QtWidgets.QWidget(Dialog)
         self.gridLayoutWidget.setGeometry(QtCore.QRect(100, 60, 800, 800))
         self.gridLayoutWidget.setObjectName("gridLayoutWidget")
@@ -29,7 +35,37 @@ class Ui_Dialog(QtWidgets.QMainWindow):
 
         self.retranslateUi(Dialog)
         QtCore.QMetaObject.connectSlotsByName(Dialog)
+        self.init_grid()
         self.add_buttons()
+        
+    def init_grid(self):
+        grid=[(['  ']*8)[:] for x in range(8)]
+        arr=['R','H','B','K','Q','B','H','R']
+
+        for x in range(8): #align black power coins
+            grid[0][x]='B'+arr[x]
+
+        for x in range(8): #align white power coins
+            grid[-1][x]='W'+arr[x]
+
+        for x in range(8): #align black pawns coins
+            grid[1][x]='BP'
+
+        for x in range(8): #align white pawns coins
+            grid[-2][x]='WP'
+        
+        self.grid=grid
+        
+        
+    def init_board(self):
+        for x in range(8):
+            for y in range(8):
+                if self.grid[x][y]!='  ':
+                    self.buttons[(x,y)].setIcon(QIcon(f"D:\\Programes\\chess-pro\\src\\images\\{self.grid[x][y]}.png"))
+                    self.buttons[(x,y)].setIconSize(QSize(50,50))
+                else:
+                    self.buttons[(x,y)].setIcon(QIcon())
+                    
 
     def add_buttons(self):
         self.gridLayout.setSpacing(0)
@@ -42,18 +78,41 @@ class Ui_Dialog(QtWidgets.QMainWindow):
             for y in range(8):
                 btn[(x,y)]=ModButton()
                 btn[(x,y)].add_x_y(x,y)
+                btn[(x,y)].clicked.connect(self.called(x,y))
                 self.gridLayout.addWidget(btn[(x,y)],x,y)
                 btn[(x,y)].setFixedSize(QtCore.QSize(100,100))
                 # btn[(x,y)].setStyleSheet("border:none;")
-                style1,style2="background-color:green","background-color:red"
+                style1,style2="background-color:#e1eff5;border:none;","background-color:#52c8f7;border:none;"
                 
                 if (y+cnt)%2==0:
                     btn[(x,y)].setStyleSheet(style1)
                 else:
                     btn[(x,y)].setStyleSheet(style2)
+        self.init_board()
                 
-
-                    
+    def called(self,x,y):
+        def clicked():
+            self.updated(x,y)
+        return clicked
+    
+    def updated(self,x,y):
+        if len(self.points)==0:
+            self.points.append((x,y))   
+        else:
+            self.points.append((x,y)) 
+            res=self.check_valid()
+            self.points=[]
+            if res is True:
+                self.turn=(self.turn+1)%2
+            else :
+                pass
+    
+    def check_valid(self):
+        x1,y1=self.points[0][0],self.points[0][1]
+        x2,y2=self.points[1][0],self.points[1][1]
+        
+        validate_move(self.grid,self.turn,x1,y1,x2,y2)
+        
                 
     def retranslateUi(self, Dialog):
         _translate = QtCore.QCoreApplication.translate

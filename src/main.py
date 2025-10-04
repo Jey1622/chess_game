@@ -105,7 +105,6 @@ def movable(coin,x,y,ex,ey):
             return True
         return False
     
-
     else:
         return False
     
@@ -121,32 +120,32 @@ def validate_move(x,y,ex,ey):
         res=movable(coin,x,y,ex,ey)
 
         if res is True:
-            grid[ex][ey]=coin
-            grid[x][y]='  '
+            # grid[ex][ey]=coin
+            # grid[x][y]='  '
             return True
         else:
             print('Invalid move...Given end not reachable!!')
             return False 
 
 def move():
-    global turn
+    turn=0
     if(turn):
         print("White's Move")
         x,y=map(int,input("Enter Start Point :").split(' '))
         ex,ey=map(int,input("Enter End Point :").split(' '))
         res=validate_move(x,y,ex,ey)
-        if res:
-            turn=0
+        # if res:
+        #     turn=0
     else:
         print("Black's Move")
         x,y=map(int,input("Enter Start Point :").split(' '))
         ex,ey=map(int,input("Enter End Point :").split(' '))
         res=validate_move(x,y,ex,ey)
-        if res:
-            turn=1
+        # if res:
+        #     turn=1
 
-init_grid()
-while(True):
-    move()
-    print_grid()
+# init_grid()
+# while(True):
+#     move()
+#     print_grid()
      
