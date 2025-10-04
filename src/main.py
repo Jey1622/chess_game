@@ -52,6 +52,12 @@ def obstructed(x,y,ex,ey):
         sty += dir_y 
     return True
 
+def check():
+    pass
+
+def  check_mate():
+    pass
+
 def straight(x,y,ex,ey):
     if (x==ex or y==ey) and obstructed(x,y,ex,ey):
         return True
