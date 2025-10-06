@@ -13,110 +13,235 @@ from pathlib import Path
 # Add parent directory to Python path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from mod_button import ModButton
-from main import validate_move
+from main import validate_move, check, check_mate, movable, set_grid
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtGui import QIcon
-from PyQt5.QtCore import QSize 
-from PyQt5.QtWidgets import QApplication, QDialog
+from PyQt5.QtCore import QSize
+from PyQt5.QtWidgets import QApplication, QDialog, QMessageBox
 
 
 class Ui_Dialog(QtWidgets.QMainWindow):
     def setupUi(self, Dialog):
         Dialog.setObjectName("Dialog")
         Dialog.resize(1164, 948)
-        self.points=[]
-        self.turn=0
+        self.points = []
+        self.turn = 1  # 1 = White's turn (starts first), 0 = Black's turn
+        self.modified = []
+        self.WKStyle = None
+        self.BKStyle = None
+        self.game_over = False
+        
         self.gridLayoutWidget = QtWidgets.QWidget(Dialog)
         self.gridLayoutWidget.setGeometry(QtCore.QRect(100, 60, 800, 800))
         self.gridLayoutWidget.setObjectName("gridLayoutWidget")
         self.gridLayout = QtWidgets.QGridLayout(self.gridLayoutWidget)
         self.gridLayout.setContentsMargins(0, 0, 0, 0)
         self.gridLayout.setObjectName("gridLayout")
+        self.gridLayout.setHorizontalSpacing(0)
+        self.gridLayout.setSpacing(0)
+        self.gridLayout.setVerticalSpacing(0)
+
+        # Add turn indicator label
+        self.turnLabel = QtWidgets.QLabel(Dialog)
+        self.turnLabel.setGeometry(QtCore.QRect(920, 60, 200, 50))
+        self.turnLabel.setStyleSheet("font-size: 20px; font-weight: bold;")
+        self.turnLabel.setText("White's Turn")
 
         self.retranslateUi(Dialog)
         QtCore.QMetaObject.connectSlotsByName(Dialog)
         self.init_grid()
         self.add_buttons()
-        
+
     def init_grid(self):
-        grid=[(['  ']*8)[:] for x in range(8)]
-        arr=['R','H','B','K','Q','B','H','R']
+        grid = [(['.']*8)[:] for x in range(8)]
+        arr = ['R', 'H', 'B', 'K', 'Q', 'B', 'H', 'R']
 
-        for x in range(8): #align black power coins
-            grid[0][x]='B'+arr[x]
+        for x in range(8):  # align black power coins
+            grid[0][x] = 'B' + arr[x]
 
-        for x in range(8): #align white power coins
-            grid[-1][x]='W'+arr[x]
+        for x in range(8):  # align white power coins
+            grid[-1][x] = 'W' + arr[x]
 
-        for x in range(8): #align black pawns coins
-            grid[1][x]='BP'
+        for x in range(8):  # align black pawns coins
+            grid[1][x] = 'BP'
 
-        for x in range(8): #align white pawns coins
-            grid[-2][x]='WP'
-        
-        self.grid=grid
-        
-        
-    def init_board(self):
+        for x in range(8):  # align white pawns coins
+            grid[-2][x] = 'WP'
+
+        self.grid = grid
+
+    def render_board(self):
         for x in range(8):
             for y in range(8):
-                if self.grid[x][y]!='  ':
-                    self.buttons[(x,y)].setIcon(QIcon(f"D:\\Programes\\chess-pro\\src\\images\\{self.grid[x][y]}.png"))
-                    self.buttons[(x,y)].setIconSize(QSize(50,50))
+                if self.grid[x][y] != '.':
+                    self.buttons[(x, y)].setIcon(QIcon(f"D:\\Programes\\chess-pro\\src\\images\\{self.grid[x][y]}.png"))
+                    self.buttons[(x, y)].setIconSize(QSize(50, 50))
                 else:
-                    self.buttons[(x,y)].setIcon(QIcon())
-                    
+                    self.buttons[(x, y)].setIcon(QIcon())
 
     def add_buttons(self):
-        self.gridLayout.setSpacing(0)
-        self.gridLayout.setContentsMargins(0, 0, 0, 0)
-        self.buttons={}
-        btn=self.buttons
-        cnt=0
+        self.buttons = {}
+        btn = self.buttons
+        cnt = 0
         for x in range(8):
-            cnt+=1
+            cnt += 1
             for y in range(8):
-                btn[(x,y)]=ModButton()
-                btn[(x,y)].add_x_y(x,y)
-                btn[(x,y)].clicked.connect(self.called(x,y))
-                self.gridLayout.addWidget(btn[(x,y)],x,y)
-                btn[(x,y)].setFixedSize(QtCore.QSize(100,100))
-                # btn[(x,y)].setStyleSheet("border:none;")
-                style1,style2="background-color:#e1eff5;border:none;","background-color:#52c8f7;border:none;"
+                btn[(x, y)] = ModButton()
+                btn[(x, y)].add_x_y(x, y)
+                btn[(x, y)].clicked.connect(self.called(x, y))
+                self.gridLayout.addWidget(btn[(x, y)], x, y)
+                btn[(x, y)].setFixedSize(QtCore.QSize(100, 100))
                 
-                if (y+cnt)%2==0:
-                    btn[(x,y)].setStyleSheet(style1)
+                style1, style2 = "background-color:#e1eff5;border:none;", "background-color:#52c8f7;border:none;"
+
+                if (y + cnt) % 2 == 0:
+                    btn[(x, y)].setStyleSheet(style1)
                 else:
-                    btn[(x,y)].setStyleSheet(style2)
-        self.init_board()
-                
-    def called(self,x,y):
+                    btn[(x, y)].setStyleSheet(style2)
+        self.render_board()
+
+    def called(self, x, y):
         def clicked():
-            self.updated(x,y)
+            self.updated(x, y)
         return clicked
-    
-    def updated(self,x,y):
-        if len(self.points)==0:
-            self.points.append((x,y))   
+
+    def updated(self, x, y):
+        # Don't allow moves if game is over
+        if self.game_over:
+            return
+            
+        if len(self.points) == 0:
+            # First click - select piece
+            if self.grid[x][y] != '.':
+                # Check if it's the correct player's turn
+                if (self.turn == 0 and self.grid[x][y][0] == 'B') or (self.turn == 1 and self.grid[x][y][0] == 'W'):
+                    self.points.append((x, y))
+                    set_grid(self.grid)
+                    self.show_possible_moves(x, y)
+                else:
+                    print("Not your turn!")
         else:
-            self.points.append((x,y)) 
-            res=self.check_valid()
-            self.points=[]
+            # Second click - move piece
+            self.undo_selected()
+            self.points.append((x, y))
+            x1, y1 = self.points[0][0], self.points[0][1]
+            x2, y2 = self.points[1][0], self.points[1][1]
+            
+            # Check if clicking same square (deselect)
+            if (x1, y1) == (x2, y2):
+                self.points = []
+                return
+            
+            res = self.check_valid()
+            self.points = []
+            
             if res is True:
-                self.turn=(self.turn+1)%2
-            else :
-                pass
-    
-    def check_valid(self):
-        x1,y1=self.points[0][0],self.points[0][1]
-        x2,y2=self.points[1][0],self.points[1][1]
-        
-        validate_move(self.grid,self.turn,x1,y1,x2,y2)
-        
+                # Check if capturing a king
+                captured_piece = self.grid[x2][y2]
                 
+                # Make the move
+                self.grid[x2][y2] = self.grid[x1][y1]
+                self.grid[x1][y1] = '.'
+                self.render_board()
+                
+                # Check if king was captured - GAME OVER
+                if captured_piece != '.' and captured_piece[1] == 'K':
+                    self.game_over = True
+                    winner = "White" if self.turn == 1 else "Black"
+                    self.show_game_over(winner)
+                    return
+                
+                self.turn = (self.turn + 1) % 2
+                self.update_turn_label()
+                self.checker()
+            else:
+                print('Invalid move')
+
+    def update_turn_label(self):
+        if self.turn == 1:
+            self.turnLabel.setText("White's Turn")
+            self.turnLabel.setStyleSheet("font-size: 20px; font-weight: bold; color: white; background-color: #333; padding: 10px;")
+        else:
+            self.turnLabel.setText("Black's Turn")
+            self.turnLabel.setStyleSheet("font-size: 20px; font-weight: bold; color: black; background-color: #ddd; padding: 10px;")
+
+    def show_game_over(self, winner):
+        # Disable all buttons
+        for btn in self.buttons.values():
+            btn.setEnabled(False)
+        
+        # Show message box
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Information)
+        msg.setWindowTitle("Game Over!")
+        msg.setText(f"{winner} Wins!")
+        msg.setInformativeText(f"{winner} has captured the opponent's King!")
+        msg.setStandardButtons(QMessageBox.Ok)
+        msg.exec_()
+        
+        # Update turn label
+        self.turnLabel.setText(f"GAME OVER - {winner} Wins!")
+        self.turnLabel.setStyleSheet("font-size: 20px; font-weight: bold; color: red; background-color: gold; padding: 10px;")
+
+    def check_valid(self):
+        x1, y1 = self.points[0][0], self.points[0][1]
+        x2, y2 = self.points[1][0], self.points[1][1]
+        
+        res = validate_move(self.grid, self.turn, x1, y1, x2, y2)
+        return res
+
+    def checker(self):
+        set_grid(self.grid)
+        a = check()
+        king_coords = a[0], a[1]
+        wx, wy = a[0]
+        bx, by = a[1]
+        Wc, Bc = a[2], a[3]
+        
+        if Wc:
+            if self.WKStyle is None:
+                self.WKStyle = self.buttons[(wx, wy)].styleSheet()
+            self.buttons[(wx, wy)].setStyleSheet('background-color:red;border:none;')
+            print("White King is in check!")
+        else:
+            if self.WKStyle is not None and wx >= 0 and wy >= 0:
+                self.buttons[(wx, wy)].setStyleSheet(self.WKStyle)
+                
+        if Bc:
+            if self.BKStyle is None:
+                self.BKStyle = self.buttons[(bx, by)].styleSheet()
+            self.buttons[(bx, by)].setStyleSheet('background-color:red;border:none;')
+            print("Black King is in check!")
+        else:
+            if self.BKStyle is not None and bx >= 0 and by >= 0:
+                self.buttons[(bx, by)].setStyleSheet(self.BKStyle)
+
+    def show_possible_moves(self, x, y):
+        gr = self.grid
+        piece = self.grid[x][y]
+        
+        for ex in range(8):
+            for ey in range(8):
+                # Check if this is a valid move destination
+                if movable(piece, x, y, ex, ey):
+                    # Can't capture own pieces
+                    if self.grid[ex][ey] == '.' or self.grid[ex][ey][0] != piece[0]:
+                        self.modified.append((self.buttons[(ex, ey)], self.buttons[(ex, ey)].styleSheet()))
+                        if self.grid[ex][ey] == '.':
+                            # Empty square - green
+                            self.buttons[(ex, ey)].setStyleSheet("background-color:#8bf7f2;border:none;")
+                        else:
+                            # Enemy piece - red/orange highlight
+                            self.buttons[(ex, ey)].setStyleSheet("background-color:#ff9664;border:none;")
+
+    def undo_selected(self):
+        for x in self.modified:
+            x[0].setStyleSheet(x[1])
+        self.modified = []
+
     def retranslateUi(self, Dialog):
         _translate = QtCore.QCoreApplication.translate
-        Dialog.setWindowTitle(_translate("Dialog", "Dialog"))
+        Dialog.setWindowTitle(_translate("Dialog", "Chess Game"))
 
 
 if __name__ == "__main__":
@@ -128,8 +253,8 @@ if __name__ == "__main__":
     Dialog.show()
     sys.exit(app.exec_())
 
-app=QtWidgets.QApplication([])
-w=Ui_Dialog()
+app = QtWidgets.QApplication([])
+w = Ui_Dialog()
 w.setupUi(w)
 w.show()
 
